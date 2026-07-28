@@ -443,6 +443,13 @@ def run_conclude_fallback(
             "conclude rejected project=%s intent=%s worker=%s conclude_ms=%s",
             project_id, intent.id, worker.name, conclude_ms,
         )
+        # Record rejection reason as a hint
+        reject_reason = ""
+        if isinstance(payload, dict):
+            reject_reason = payload.get("reason") or ""
+        if reject_reason:
+            hint_content = f"[探索失败] 意图 {intent.id} 已拒绝: {reject_reason}"
+            client.create_hint(project_id, hint_content, worker.name)
         best_effort_release(client, project_id, intent.id, worker.name)
         return "rejected"
 

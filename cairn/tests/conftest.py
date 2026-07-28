@@ -152,6 +152,9 @@ class FakeClient:
         self.released_reasons.append((project_id, worker))
         return ApiResult(200, {})
 
+    def create_hint(self, project_id: str, content: str, creator: str) -> ApiResult:
+        return ApiResult(201, {})
+
     def heartbeat(self, _project_id: str, _intent_id: str, _worker: str) -> ApiResult:
         return ApiResult(200, {})
 

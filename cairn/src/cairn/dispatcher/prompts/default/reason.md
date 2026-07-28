@@ -37,6 +37,11 @@ If Goal has not been satisfied and no new intent should currently be proposed, r
 - Each Intent should be a high-value exploration direction. It does not need to be overly detailed. Focus on the core insight and a clear direction. Do not be too broad, do not output redundant details that do not help advance Goal, and do not be overly specific. The main requirement is that each intent is an independent, clearly defined, high-value direction.
 - An Intent may originate from multiple facts.
 - Different intents should cover different exploration dimensions and avoid duplication or heavy overlap.
+- **Prioritize by impact**: When choosing between exploration directions, prioritize intents that target:
+  1. Findings marked [SEVERITY: Critical] or [SEVERITY: High] — these need immediate verification
+  2. Attack surfaces that are known to lead to privilege escalation or data access
+  3. Previously unexplored system components over re-checking already-examined ones
+- **Consider failure evidence**: If a prior Explore returned [FAILED_REASON: ...], avoid sending another Explore in the same direction unless new facts change the picture.
 
 ## Context
 ### Graph

@@ -122,6 +122,15 @@ def run_explore_task(
                     execute_ms, int((time.perf_counter() - task_started) * 1000),
                     preview(first.stdout),
                 )
+                # Save rejection reason as a hint so Reason can avoid repeating
+                reject_reason = payload.get("reason") or ""
+                if reject_reason:
+                    reason_hint = f"[探索失败] 意图 {intent.id} 已拒绝: {reject_reason}"
+                    client.create_hint(project.project.id, reason_hint, worker.name)
+                    LOG.info(
+                        "recorded rejection hint project=%s intent=%s worker=%s reason=%s",
+                        project.project.id, intent.id, worker.name, reject_reason,
+                    )
                 release_fn()
                 return "rejected"
             return write_conclude_result(

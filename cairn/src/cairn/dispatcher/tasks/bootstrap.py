@@ -23,6 +23,7 @@ from cairn.dispatcher.tasks.common import (
     run_healthcheck,
     run_worker_process,
     task_healthcheck_enabled,
+    write_conclude_result,
     write_conclude_result_with_fact_id,
 )
 from cairn.dispatcher.workers.registry import get_driver
@@ -118,9 +119,17 @@ def run_bootstrap_task(
                 )
                 release_fn()
                 return "rejected"
-            return _write_bootstrap_complete_result(
+            if kind == "complete":
+                return _write_bootstrap_complete_result(
+                    client, project.project.id, intent.id, worker.name,
+                    data["fact_description"], data["complete_description"],
+                    source="bootstrap", phase_ms=execute_ms,
+                    total_ms=int((time.perf_counter() - task_started) * 1000),
+                )
+            # kind == "fact": only a fact, no complete — just conclude the intent
+            return write_conclude_result(
                 client, project.project.id, intent.id, worker.name,
-                data["fact_description"], data["complete_description"],
+                data["fact_description"],
                 source="bootstrap", phase_ms=execute_ms,
                 total_ms=int((time.perf_counter() - task_started) * 1000),
             )

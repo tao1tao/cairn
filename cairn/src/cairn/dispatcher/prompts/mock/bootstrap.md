@@ -4,3 +4,4 @@
   "goal": "{goal}",
   "hints": {hints}
 }
+

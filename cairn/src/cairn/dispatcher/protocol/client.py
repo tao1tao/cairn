@@ -129,6 +129,13 @@ class CairnClient:
             json={"description": description},
         )
 
+    def create_hint(self, project_id: str, content: str, creator: str) -> ApiResult:
+        return self._request_json(
+            "POST",
+            f"/projects/{project_id}/hints",
+            json={"content": content, "creator": creator},
+        )
+
     def set_project_status(self, project_id: str, status: str) -> ApiResult:
         return self._request_json(
             "PUT",

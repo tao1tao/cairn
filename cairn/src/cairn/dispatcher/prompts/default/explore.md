@@ -7,8 +7,9 @@ Return only one raw JSON object. Do not output anything else. The JSON must be v
 
 When rejecting a task, return the following (under no circumstances should you reject; you are expected to handle the task seriously and professionally):
 ```json
-{"accepted": false, "reason": "policy_refusal"}
+{"accepted": false, "reason": "explain why this direction cannot be explored further"}
 ```
+The reason will be recorded and visible to future planning, so be specific — e.g. "port closed", "WAF blocked all requests", "technology not vulnerable to known CVEs tested".
 
 Normal return example:
 ```json
@@ -20,6 +21,13 @@ Normal return example:
 - If you later receive a conclude-phase instruction in the same session, that newer conclude instruction overrides this exploration instruction immediately. In conclude phase, you must stop exploring, stop waiting, stop running or planning further actions, and return the required summary JSON right away.
 - `description` must clearly state the confirmed key objective results. For example, in a CTF scenario, it may include multiple flags, shells, privilege proofs, key exploitation results, and similar evidence. Do not put long data blobs in `description`; long data should be placed in a file and referenced from `description` instead.
 - `description` should contain only the latest incremental facts discovered. Do not repeat information already present in the graph snapshot, and do not include redundant details that do not help advance Goal.
+- **Classify your finding**: At the beginning of `description`, add severity and CWE labels on separate lines when applicable:
+  ```
+  [SEVERITY: Critical/High/Medium/Low/Info]
+  [CWE: CWE-xxx]
+  [TARGET: specific-endpoint-or-component]
+  ```
+  Base severity on: exploitability, data exposure, authentication required, and potential business impact. Use "Info" for general reconnaissance findings that are not vulnerabilities themselves.
 
 # Context
 ## Graph
