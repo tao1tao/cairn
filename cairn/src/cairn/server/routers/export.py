@@ -12,11 +12,13 @@ router = APIRouter(tags=["export"])
 def format_export_timestamp(value: str | None) -> str | None:
     if not value:
         return value
-    try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError:
-        return value
-    return dt.astimezone().strftime("%Y-%m-%d %H:%M:%S")
+    # Keep UTC — strip ISO format, append explicit UTC label for reproducibility
+    ts = value.replace("T", " ")
+    if ts.endswith("Z"):
+        ts = ts[:-1] + " UTC"
+    elif ts.endswith("+00:00"):
+        ts = ts[:-6] + " UTC"
+    return ts
 
 
 def _load_project_data(conn, project_id: str):

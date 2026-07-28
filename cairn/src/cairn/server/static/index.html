@@ -2239,15 +2239,19 @@ function cairnApp() {
     },
 
     startPolling() {
-      this.pollTimer = setInterval(async () => {
+      const poll = async () => {
         if (!this.polling) return;
+        const jitter = Math.floor(Math.random() * 1500); // 0-1500ms jitter
+        this.pollTimer = setTimeout(poll, 5000 + jitter);
+
         if (this.selectedProjectId && this.view === 'graph') {
           await this.loadProject(this.selectedProjectId);
           this.updateGraph();
         } else {
           await this.loadProjects();
         }
-      }, 5000);
+      };
+      poll();
     },
 
     buildElements() {

@@ -179,6 +179,8 @@ class ContainerManager:
         command: list[str],
         timeout_seconds: int | None = None,
         kill_after_seconds: int = 5,
+        project_id: str | None = None,
+        output_callback: callable | None = None,
     ) -> ManagedProcess:
         container = self._require_container(container_name)
         argv: list[str] = []
@@ -192,7 +194,7 @@ class ContainerManager:
                 ]
             )
         argv.extend(command)
-        return ManagedProcess(container, argv, env)
+        return ManagedProcess(container, argv, env, project_id=project_id, output_callback=output_callback)
 
     def write_text_file(self, container_name: str, path: str, content: str) -> None:
         archive_path, archive = self._text_file_archive(path, content)

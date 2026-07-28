@@ -81,7 +81,7 @@ def run_explore_task(
             container_manager, container_name, worker, execute.argv,
             phase="explore_execute",
             timeout_seconds=config.tasks.explore.timeout,
-            lease=lease, cancellation=cancellation,
+            project_id=project.project.id, lease=lease, cancellation=cancellation,
         )
         execute_ms = int((time.perf_counter() - execute_started) * 1000)
         session = driver.extract_session(session, first.stdout, first.stderr)

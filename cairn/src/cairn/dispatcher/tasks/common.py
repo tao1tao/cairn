@@ -76,6 +76,7 @@ def run_worker_process(
     *,
     phase: str,
     timeout_seconds: int,
+    project_id: str | None = None,
     lease: HeartbeatLease | None = None,
     cancellation: TaskCancellation | None = None,
     output_callback: Callable | None = None,
@@ -92,6 +93,7 @@ def run_worker_process(
         dict(worker.env),
         argv,
         timeout_seconds=timeout_seconds,
+        project_id=project_id,
         **({} if output_callback is None else {"output_callback": output_callback}),
     )
     process.start()
@@ -397,7 +399,8 @@ def run_conclude_fallback(
     result = run_worker_process(
         container_manager, container_name, worker, conclude_argv,
         phase=source.replace("/", "_"),
-        timeout_seconds=conclude_timeout, lease=lease, cancellation=cancellation,
+        timeout_seconds=conclude_timeout, project_id=project_id,
+        lease=lease, cancellation=cancellation,
     )
     conclude_ms = int((time.perf_counter() - conclude_started) * 1000)
 

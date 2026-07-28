@@ -3,6 +3,8 @@ from __future__ import annotations
 from contextlib import suppress
 from dataclasses import dataclass
 import logging
+import os
+from pathlib import Path
 import threading
 import time
 from typing import Any, Protocol, runtime_checkable
@@ -12,6 +14,18 @@ from docker.models.containers import Container
 
 LOG = logging.getLogger(__name__)
 EXEC_KILL_JOIN_TIMEOUT_SECONDS = 5.0
+PROGRESS_DIR = Path("/tmp/cairn-progress")
+
+
+def _write_progress(project_id: str, text: str) -> None:
+    """Append text to the per-project progress log, same as LocalProcess."""
+    try:
+        PROGRESS_DIR.mkdir(parents=True, exist_ok=True)
+        log_path = PROGRESS_DIR / f"{project_id}.log"
+        with open(log_path, "a", encoding="utf-8", errors="replace") as f:
+            f.write(text)
+    except Exception:
+        pass
 
 
 @dataclass(slots=True)
@@ -42,7 +56,8 @@ class ExecProcess(Protocol):
 
 
 class ManagedProcess:
-    def __init__(self, container: Container, command: list[str], env: dict[str, str]):
+    def __init__(self, container: Container, command: list[str], env: dict[str, str],
+                 project_id: str | None = None, output_callback: callable | None = None):
         self.command = command
         self.env = env
         self._container = container
@@ -56,6 +71,8 @@ class ManagedProcess:
         self._cancel_reason: str | None = None
         self._read_error: str | None = None
         self._done = threading.Event()
+        self._project_id = project_id
+        self._output_callback = output_callback
 
     def start(self) -> None:
         exec_info = self._api.exec_create(
@@ -130,6 +147,13 @@ class ManagedProcess:
                 stdout, stderr = self._split_chunk(chunk)
                 if stdout:
                     self._stdout.append(stdout)
+                    if self._project_id:
+                        _write_progress(self._project_id, stdout)
+                    if self._output_callback:
+                        try:
+                            self._output_callback(stdout)
+                        except Exception:
+                            pass
                 if stderr:
                     self._stderr.append(stderr)
         except DockerException as exc:

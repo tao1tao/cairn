@@ -96,7 +96,7 @@ def run_reason_task(
             container_manager, container_name, worker, command.argv,
             phase="reason_execute",
             timeout_seconds=config.tasks.reason.timeout,
-            lease=lease, cancellation=cancellation,
+            project_id=project.project.id, lease=lease, cancellation=cancellation,
         )
         execute_ms = int((time.perf_counter() - execute_started) * 1000)
         total_ms = int((time.perf_counter() - task_started) * 1000)

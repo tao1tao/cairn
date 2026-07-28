@@ -50,6 +50,7 @@ class LocalBackend:
         command: list[str],
         timeout_seconds: int | None = None,
         kill_after_seconds: int = 5,
+        project_id: str | None = None,
         output_callback: callable | None = None,
     ) -> LocalProcess:
         merged_env = {**os.environ, **(env or {})}
