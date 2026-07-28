@@ -57,14 +57,9 @@ def test_reason_writes_graph_snapshot_and_creates_intent(monkeypatch) -> None:
     assert client.created_intents == [("proj_001", ["f001"], "next step", "test-worker")]
     assert client.released_reasons == [("proj_001", "test-worker")]
     assert lease.started and lease.stopped
-    assert len(containers.writes) == 1
-    container_name, path, content = containers.writes[0]
-    assert container_name == "container-proj_001"
-    assert path.startswith("/tmp/cairn-prompts/reason_execute-")
-    assert path.endswith("/graph.yaml")
-    assert content == graph_yaml
-    assert graph_yaml not in driver.execute_prompts[0]
-    assert path in driver.execute_prompts[0]
+    assert len(containers.writes) == 0
+    # Graph YAML is inlined directly in the prompt (no file reference)
+    assert graph_yaml in driver.execute_prompts[0]
 
 
 def test_explore_early_plain_text_exit_uses_conclude_fallback(monkeypatch) -> None:
@@ -101,9 +96,7 @@ def test_explore_early_plain_text_exit_uses_conclude_fallback(monkeypatch) -> No
 
     assert outcome == "success"
     assert client.concluded == [("proj_001", "i001", "test-worker", "confirmed fact")]
-    assert len(containers.writes) == 2
-    assert "/explore_execute-" in containers.writes[0][1]
-    assert "/explore_conclude-" in containers.writes[1][1]
+    assert len(containers.writes) == 0
     assert len(driver.execute_prompts) == 1
     assert len(driver.conclude_prompts) == 1
     assert lease.started and lease.stopped

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 import time
-import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -18,6 +17,7 @@ from cairn.dispatcher.workers.base import WorkerDriver
 
 PROCESS_COMMUNICATE_GRACE_SECONDS = 15
 LOG_PREVIEW_LIMIT = 1200
+# Kept for test compatibility; the graph is now inlined directly in the prompt.
 GRAPH_SNAPSHOT_ROOT = "/tmp/cairn-prompts"
 LOG = logging.getLogger(__name__)
 
@@ -64,14 +64,8 @@ def write_graph_snapshot_reference(
     *,
     phase: str,
 ) -> str:
-    path = f"{GRAPH_SNAPSHOT_ROOT}/{phase}-{uuid.uuid4().hex[:12]}/graph.yaml"
-    container_manager.write_text_file(container_name, path, graph_yaml)
-    return (
-        "The graph YAML snapshot is stored in this file inside the current container:\n\n"
-        f"{path}\n\n"
-        "Before using the graph, read the entire file and treat its contents as the YAML snapshot "
-        "for this Graph section."
-    )
+    # Inline YAML directly so the LLM has it immediately — no extra file-read tool call.
+    return graph_yaml
 
 
 def run_worker_process(

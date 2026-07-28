@@ -1225,7 +1225,17 @@ function cairnApp() {
       if (body) opts.body = JSON.stringify(body);
       const r = await fetch(path, opts);
       if (r.status === 204) return null;
-      const data = await r.json();
+
+      // Try JSON, fall back to raw text for error messages
+      let data;
+      try {
+        data = await r.json();
+      } catch {
+        const text = await r.text();
+        if (!r.ok) throw new Error(text || `HTTP ${r.status}`);
+        return text;
+      }
+
       if (!r.ok) {
         let msg = `HTTP ${r.status}`;
         if (typeof data.detail === 'string') msg = data.detail;

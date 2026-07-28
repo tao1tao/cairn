@@ -22,6 +22,7 @@ def _loop() -> DispatcherLoop:
     loop.worker_rejected_until = {}
     loop._log_state = {}
     loop.project_cursor = 0
+    loop.bootstrap_retries = {}
     return loop
 
 

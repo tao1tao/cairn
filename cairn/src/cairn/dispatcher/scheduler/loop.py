@@ -863,6 +863,13 @@ class DispatcherLoop:
             current_status = inactive_status_by_id.get(project_id)
             if current_status != status:
                 self._inactive_cleanup_done.pop(project_id, None)
+        # Clean up per-project state for inactive projects
+        for project_id in list(self.reason_checkpoints):
+            if project_id not in active_ids:
+                self.reason_checkpoints.pop(project_id, None)
+        for project_id in list(self.bootstrap_retries):
+            if project_id not in active_ids:
+                self.bootstrap_retries.pop(project_id, None)
 
     def _cancel_inactive_tasks(self, summaries: list[ProjectSummary]) -> None:
         status_by_project = {summary.id: summary.status for summary in summaries}

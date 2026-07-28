@@ -182,8 +182,6 @@ def _export_report(conn, project_id: str) -> str:
     lines.append(f"**创建时间**: {format_export_timestamp(proj['created_at'])}\n")
     lines.append(f"**发现总数**: {len([f for f in facts if f['id'] not in ('origin', 'goal')])} | **探索方向**: {len(intents)}\n")
 
-    if hints:
-        lines.append(f"\n{summary_desc}\n")
 
     # Hints
     if hints:

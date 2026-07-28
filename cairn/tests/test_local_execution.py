@@ -418,9 +418,6 @@ def test_explore_runs_real_local_cli_end_to_end(tmp_path: Path, monkeypatch) -> 
 
     assert outcome == "success"
     assert client.concluded == [("proj_001", "i001", "test-worker", "local fake fact")]
-    # graph snapshot was materialised on the host under the patched root
-    snapshot_root = tmp_path / "prompts"
-    assert any(p.name == "graph.yaml" for p in snapshot_root.rglob("*"))
 
 
 def test_explore_local_cli_rejection_releases_intent(tmp_path: Path, monkeypatch) -> None:

@@ -353,8 +353,6 @@ def test_mock_scheduler_runs_reason_explore_reason_complete_chain(http_client: T
         ("i002", "f002"),
         ("i003", "goal"),
     ]
-    assert any("/reason_execute-" in path and "f002" in content for _, path, content in containers.writes)
-    assert any("/explore_execute-" in path and "f001" in content for _, path, content in containers.writes)
 
 
 def test_mock_scheduler_enabled_project_skips_bootstrap_when_worker_does_not_support_it(
@@ -433,10 +431,6 @@ def test_mock_scheduler_explore_conclude_fallback(http_client: TestClient) -> No
         _dispatch_and_wait(loop)
         project = client.get_project(project_id)
         assert any(fact.id == "f002" for fact in project.facts)
-        assert any(
-            "/explore_conclude-" in path
-            for _, path, _ in containers.writes
-        ), "explore conclude fallback should have produced a graph snapshot"
 
         # round 3: reason sees facts changed (4 now, 3 allowed) → rule triggers → complete
         _dispatch_and_wait(loop)
