@@ -309,6 +309,9 @@ def test_mock_scheduler_bootstrap_completes_project_end_to_end(http_client: Test
     project_id = _create_project(http_client)
 
     try:
+        # Bootstrap writes a fact but no longer completes the project
+        _dispatch_and_wait(loop)
+        # Reason now completes since there's a fact to work with
         _dispatch_and_wait(loop)
         project = client.get_project(project_id)
     finally:
@@ -466,12 +469,14 @@ def test_task_healthcheck_healthy_worker_completes_end_to_end(http_client: TestC
     project_id = _create_project(http_client)
 
     try:
-        _dispatch_and_wait(loop)
+        _dispatch_and_wait(loop)  # bootstrap → fact f001
+        _dispatch_and_wait(loop)  # reason → complete
         project = client.get_project(project_id)
     finally:
         loop.close()
 
-    # code-based check_health runs before the task, passes, and the bootstrap completes
+    # code-based check_health runs before the task, passes, bootstrap produces fact,
+    # then reason runs and completes the project
     assert project.project.status == "completed"
 
 
@@ -493,6 +498,7 @@ def test_task_healthcheck_failure_aborts_task_and_cools_down_worker(http_client:
 
     try:
         _dispatch_and_wait(loop)
+        # healthcheck fails → task aborts → project stays active
         project = client.get_project(project_id)
     finally:
         loop.close()
@@ -625,7 +631,11 @@ def test_unhealthy_worker_fails_over_to_healthy_worker(http_client: TestClient) 
         assert "bad" in loop.worker_unhealthy_until
         assert client.get_project(project_id).project.status == "active"
 
-        # round 2: 'bad' still cooling down -> 'good' takes over and completes the project
+        # round 2: 'bad' still cooling down -> 'good' takes over, bootstrap produces fact
+        _dispatch_and_wait(loop)
+        assert client.get_project(project_id).project.status == "active"
+
+        # round 3: reason completes the project
         _dispatch_and_wait(loop)
         project = client.get_project(project_id)
     finally:

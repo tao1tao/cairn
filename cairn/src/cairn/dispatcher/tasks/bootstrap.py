@@ -24,7 +24,6 @@ from cairn.dispatcher.tasks.common import (
     run_worker_process,
     task_healthcheck_enabled,
     write_conclude_result,
-    write_conclude_result_with_fact_id,
 )
 from cairn.dispatcher.workers.registry import get_driver
 from cairn.server.models import Intent, ProjectDetail
@@ -120,13 +119,12 @@ def run_bootstrap_task(
                 release_fn()
                 return "rejected"
             if kind == "complete":
-                return _write_bootstrap_complete_result(
-                    client, project.project.id, intent.id, worker.name,
-                    data["fact_description"], data["complete_description"],
-                    source="bootstrap", phase_ms=execute_ms,
-                    total_ms=int((time.perf_counter() - task_started) * 1000),
+                # Bootstrap should never complete the project — log and treat as fact-only
+                LOG.warning(
+                    "bootstrap returned unexpected complete project=%s intent=%s worker=%s — treating as fact only",
+                    project.project.id, intent.id, worker.name,
                 )
-            # kind == "fact": only a fact, no complete — just conclude the intent
+            # kind == "complete" or "fact": just conclude the intent with the fact
             return write_conclude_result(
                 client, project.project.id, intent.id, worker.name,
                 data["fact_description"],
@@ -212,53 +210,3 @@ def _bootstrap_prompt_replacements(project: ProjectDetail) -> dict[str, str]:
     }
 
 
-def _write_bootstrap_complete_result(
-    client: CairnClient,
-    project_id: str,
-    intent_id: str,
-    worker_name: str,
-    fact_description: str,
-    complete_description: str,
-    *,
-    source: str,
-    phase_ms: int,
-    total_ms: int | None = None,
-) -> str:
-    conclude = write_conclude_result_with_fact_id(
-        client, project_id, intent_id, worker_name, fact_description,
-        source=source, phase_ms=phase_ms, total_ms=total_ms,
-    )
-    if conclude.status != "success":
-        return "failed"
-    if conclude.fact_id is None:
-        LOG.warning(
-            "bootstrap complete deferred because conclude response omitted fact id "
-            "project=%s intent=%s worker=%s source=%s",
-            project_id, intent_id, worker_name, source,
-        )
-        return "success"
-
-    response = client.complete(
-        project_id, [conclude.fact_id], complete_description, worker_name,
-    )
-    if response.status_code in (403, 409):
-        LOG.info(
-            "bootstrap complete deferred project=%s intent=%s worker=%s source=%s status=%s fact_id=%s",
-            project_id, intent_id, worker_name, source,
-            response.status_code, conclude.fact_id,
-        )
-        return "success"
-    if not response.ok:
-        LOG.warning(
-            "bootstrap complete write failed project=%s intent=%s worker=%s "
-            "source=%s fact_id=%s status=%s body=%s",
-            project_id, intent_id, worker_name, source,
-            conclude.fact_id, response.status_code, response.text,
-        )
-        return "failed"
-    LOG.info(
-        "bootstrap completed project=%s intent=%s worker=%s source=%s from=%s phase_ms=%s%s",
-        project_id, intent_id, worker_name, source, [conclude.fact_id], phase_ms,
-        f" total_ms={total_ms}" if total_ms is not None else "",
-    )
-    return "success"

@@ -164,7 +164,8 @@ def test_bootstrap_success_concludes_fact_then_completes_project(monkeypatch) ->
 
     assert outcome == "success"
     assert client.concluded == [("proj_001", "i001", "test-worker", "solved")]
-    assert client.completed == [("proj_001", ["f002"], "goal met", "test-worker")]
+    # Bootstrap no longer completes the project — it only writes the fact
+    assert client.completed == []
     assert lease.started and lease.stopped
 
 
