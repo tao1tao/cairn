@@ -239,4 +239,10 @@ def run_reason_task(
         return "success"
     finally:
         lease.stop()
-        best_effort_release_reason(client, project.project.id, worker.name)
+        try:
+            best_effort_release_reason(client, project.project.id, worker.name)
+        except Exception:
+            LOG.exception(
+                "reason release failed project=%s worker=%s",
+                project.project.id, worker.name,
+            )

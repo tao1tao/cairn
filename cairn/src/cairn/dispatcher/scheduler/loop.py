@@ -72,12 +72,14 @@ class DispatcherLoop:
     def close(self) -> None:
         if self.futures:
             LOG.info(
-                "dispatcher shutting down waiting_for_tasks=%s running_projects=%s",
+                "dispatcher shutting down cancelling_tasks=%s running_projects=%s",
                 len(self.futures),
                 sorted({task.project_id for task in self.futures.values()}),
             )
-        self.executor.shutdown(wait=True)
-        self.cleanup_executor.shutdown(wait=True)
+            for task in self.futures.values():
+                task.cancellation.cancel("dispatcher_shutdown")
+        self.executor.shutdown(wait=False)
+        self.cleanup_executor.shutdown(wait=False)
         self.container_manager.close()
         self.client.close()
 

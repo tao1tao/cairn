@@ -17,16 +17,21 @@ class LocalBackend:
     Each project gets an isolated working directory under ``workspace_root`` (defaulting
     to the directory the dispatcher was started in). Worker processes inherit the host
     environment so the pre-configured ``claude`` / ``codex`` / ``pi`` CLIs and their
-    credentials are used as-is; no API keys are injected. There are no containers to
-    build or tear down, so the container-lifecycle methods are inert.
+    credentials are used as-is; no API keys are injected.
+
+    Spawned processes are tracked by project so they can be killed when a project is
+    stopped or completed.
     """
 
     def __init__(self, config: LocalConfig):
         self._config = config
         root = config.workspace_root
         self._root = Path(root).expanduser() if root else Path.cwd()
+        self._processes: dict[str, list[LocalProcess]] = {}
 
     def close(self) -> None:
+        for project_id in list(self._processes):
+            self._kill_project_processes(project_id)
         return None
 
     def container_name(self, project_id: str) -> str:
@@ -49,7 +54,7 @@ class LocalBackend:
     ) -> LocalProcess:
         merged_env = {**os.environ, **(env or {})}
         project_id = Path(container_name).name
-        return LocalProcess(
+        process = LocalProcess(
             command,
             cwd=container_name,
             env=merged_env,
@@ -58,6 +63,8 @@ class LocalBackend:
             project_id=project_id,
             output_callback=output_callback,
         )
+        self._processes.setdefault(project_id, []).append(process)
+        return process
 
     def write_text_file(self, container_name: str, path: str, content: str) -> None:
         target = Path(path)
@@ -67,12 +74,15 @@ class LocalBackend:
         target.write_text(content, encoding="utf-8")
 
     def needs_completed_cleanup(self, project_id: str) -> bool:
-        return self._config.completed_action == "remove" and self._project_dir(project_id).exists()
+        if self._config.completed_action == "remove":
+            return self._project_dir(project_id).exists()
+        return project_id in self._processes
 
     def needs_stopped_cleanup(self, project_id: str) -> bool:
-        return False
+        return project_id in self._processes
 
     def cleanup_completed(self, project_id: str) -> bool:
+        self._kill_project_processes(project_id)
         if self._config.completed_action == "remove":
             project_dir = self._project_dir(project_id)
             LOG.info("removing completed project workdir project=%s dir=%s", project_id, project_dir)
@@ -80,6 +90,7 @@ class LocalBackend:
         return True
 
     def cleanup_stopped(self, project_id: str) -> bool:
+        self._kill_project_processes(project_id)
         return True
 
     def managed_container_names(self) -> list[str]:
@@ -87,3 +98,14 @@ class LocalBackend:
 
     def _project_dir(self, project_id: str) -> Path:
         return self._root / project_id.replace("/", "-")
+
+    def _kill_project_processes(self, project_id: str) -> None:
+        processes = self._processes.pop(project_id, [])
+        if not processes:
+            return
+        LOG.info("killing %d tracked process(es) for project=%s", len(processes), project_id)
+        for process in processes:
+            try:
+                process.kill()
+            except Exception:
+                LOG.exception("failed to kill process for project=%s", project_id)

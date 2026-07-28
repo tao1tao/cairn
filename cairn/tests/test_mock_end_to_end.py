@@ -264,6 +264,10 @@ def _loop(config: DispatchConfig, client: InProcessClient, containers: LocalCont
     loop._cleanup_pending = set()
     loop._inactive_cleanup_done = {}
     loop.project_cursor = 0
+    loop.bootstrap_retries = {}
+    loop._iteration_count = 0
+    loop._settings_checked = False
+    loop._startup_healthchecks_checked = False
     return loop
 
 
@@ -382,6 +386,76 @@ def test_mock_scheduler_enabled_project_skips_bootstrap_when_worker_does_not_sup
     ]
 
 
+def test_mock_scheduler_explore_conclude_fallback(http_client: TestClient) -> None:
+    """Full chain with explore conclude fallback: seed → reason → explore(conclude) → complete.
+
+    When the explore worker's initial output is not valid JSON, the task should
+    fall back to a phase-2 conclude prompt. This tests recovery from worker-side
+    parse failure within a single explore task, exercising:
+      - L3: conclude fallback path in explore task
+      - L4: end-to-end recovery without losing the project
+    """
+    client = InProcessClient(http_client)
+    containers = LocalContainerManager()
+    loop = _loop(
+        _config(
+            bootstrap=_phase("complete"),
+            reason=_phase("intent", rules=[{"fact_ids_gte": 3, "force": "complete"}]),
+            explore=json.dumps({
+                "delay": [0, 0],
+                "outcomes": {
+                    "invalid_json": 1,
+                    "fact": 0,
+                    "rejected": 0,
+                    "invalid_payload": 0,
+                    "command_fail": 0,
+                },
+            }),
+        ),
+        client,
+        containers,
+    )
+    project_id = _create_project(http_client)
+    seed = client.create_intent(project_id, ["origin"], "seed", "seed-worker")
+    assert seed.ok
+    assert client.heartbeat(project_id, "i001", "seed-worker").ok
+    assert client.conclude(project_id, "i001", "seed-worker", "seed fact").ok
+
+    try:
+        # round 1: reason runs on initial state, creates i002 from f001
+        # checkpoint captures 3 facts, 0 open intents (i001 already concluded)
+        _dispatch_and_wait(loop)
+        assert loop.reason_checkpoints[project_id] == ReasonCheckpoint(3, 0, 0)
+
+        # round 2: explore runs on i002 → mock produces invalid JSON "{invalid json"
+        # → parse fails → _conclude_fallback_for_explore kicks in
+        # → fallback runs explore_conclude prompt → mock produces "fact" → i002→f002
+        _dispatch_and_wait(loop)
+        project = client.get_project(project_id)
+        assert any(fact.id == "f002" for fact in project.facts)
+        assert any(
+            "/explore_conclude-" in path
+            for _, path, _ in containers.writes
+        ), "explore conclude fallback should have produced a graph snapshot"
+
+        # round 3: reason sees facts changed (4 now, 3 allowed) → rule triggers → complete
+        _dispatch_and_wait(loop)
+        project = client.get_project(project_id)
+    finally:
+        loop.close()
+
+    assert project.project.status == "completed"
+    assert [fact.id for fact in project.facts] == ["origin", "goal", "f001", "f002"]
+    assert any(
+        intent.id == "i002" and intent.to == "f002"
+        for intent in project.intents
+    )
+    assert any(
+        intent.id == "i003" and intent.to == "goal"
+        for intent in project.intents
+    )
+
+
 def test_task_healthcheck_healthy_worker_completes_end_to_end(http_client: TestClient) -> None:
     client = InProcessClient(http_client)
     containers = LocalContainerManager()
@@ -475,6 +549,74 @@ def _failover_config() -> DispatchConfig:
             ],
         }
     )
+
+
+def test_mock_scheduler_explore_origin_sourced_intent_chain(http_client: TestClient) -> None:
+    """Full chain with explore on an origin-sourced intent: no bootstrap → reason(origin) → explore → complete.
+
+    When bootstrap is not required (no worker supports it), an initial project
+    goes directly to reason. Reason creates an intent from origin (the only
+    non-goal fact), then explore runs on it. This exercises path 2 from the
+    integration graph (origin → f003), testing:
+      - L2: dispatcher loop's initial-project → bootstrap-skip logic
+      - L3: reason creating intents from the origin fact
+      - L4: full chain: create → reason → explore → reason → complete
+        where the explored intent originates from origin, not from a seed fact
+    """
+    client = InProcessClient(http_client)
+    containers = LocalContainerManager()
+    loop = _loop(
+        _config(
+            bootstrap=_phase("complete"),
+            reason=_phase("intent", rules=[{"fact_ids_gte": 2, "force": "complete"}]),
+            explore=_phase("fact"),
+            task_types=["reason", "explore"],
+        ),
+        client,
+        containers,
+    )
+    project_id = _create_project(http_client)
+
+    try:
+        # round 1: _is_initial_project=True, bootstrap not required (no worker supports it)
+        # → _dispatch_reason with "initial" trigger
+        # mock reason sees fact_ids=["origin"], open_intents=[]
+        # → creates intent i001 from origin ("mock intent 1 from origin")
+        _dispatch_and_wait(loop)
+        project = client.get_project(project_id)
+        assert (
+            loop.reason_checkpoints[project_id]
+            == ReasonCheckpoint(2, 0, 0)
+        ), "checkpoint captures pre-reason state: 2 facts, no hints, no open intents"
+
+        # round 2: _reason_trigger sees no change (checkpoint 2 facts == current 2 facts)
+        # → unclaimed intent i001 (from origin) → dispatch explore on origin-sourced intent
+        # mock explore produces "mock fact for i001" → i001→f001
+        _dispatch_and_wait(loop)
+        project = client.get_project(project_id)
+        assert any(fact.id == "f001" for fact in project.facts)
+        assert any(
+            intent.id == "i001" and intent.to == "f001" and intent.from_ == ["origin"]
+            for intent in project.intents
+        ), "explore concluded the origin-sourced intent, producing f001"
+
+        # round 3: _reason_trigger sees facts changed (2→3) → dispatch reason
+        # rule fact_ids_gte: 2 triggers → mock forces "complete" → project done
+        _dispatch_and_wait(loop)
+        project = client.get_project(project_id)
+    finally:
+        loop.close()
+
+    assert project.project.status == "completed"
+    assert [fact.id for fact in project.facts] == ["origin", "goal", "f001"]
+    assert any(
+        intent.id == "i001" and intent.to == "f001" and intent.from_ == ["origin"]
+        for intent in project.intents
+    ), "i001 is the origin-sourced intent, explored to f001"
+    assert any(
+        intent.id == "i002" and intent.to == "goal"
+        for intent in project.intents
+    ), "i002 is the completion intent (reason forced complete)"
 
 
 def test_unhealthy_worker_fails_over_to_healthy_worker(http_client: TestClient) -> None:

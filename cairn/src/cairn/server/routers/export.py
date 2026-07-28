@@ -152,87 +152,146 @@ def _export_timeline(conn, project_id: str) -> str:
 
 
 def _export_report(conn, project_id: str) -> str:
-    """Generate a Markdown report summarizing the entire project."""
+    """Generate a Markdown security assessment report matching standard vulnerability report format."""
     proj, facts, hints, intents, sources_by_intent = _load_project_data(conn, project_id)
 
     facts_by_id = {f["id"]: f["description"] for f in facts}
     origin_desc = facts_by_id.get("origin", "")
     goal_desc = facts_by_id.get("goal", "")
+    now_str = datetime.now().strftime("%Y/%m/%d %H:%M:%S")
 
     status_icon = {"active": "🟢", "stopped": "🟡", "completed": "✅"}
     icon = status_icon.get(proj["status"], "⚪")
 
     lines = []
-    lines.append(f"# {proj['title']} 安全测试报告\n")
-    lines.append(f"**项目状态**: {icon} {proj['status']}\n")
-    if origin_desc:
-        lines.append(f"**测试目标**: `{origin_desc}`\n")
-    if goal_desc:
-        lines.append(f"**测试目的**: {goal_desc}\n")
-    lines.append(f"**创建时间**: {format_export_timestamp(proj['created_at'])}\n")
-    lines.append(f"**事实总数**: {len(facts)} | **探索方向**: {len(intents)}\n")
+    # ── Report Header ──
+    lines.append("# 安全评估报告\n")
+    lines.append(f"- **项目**: {origin_desc or proj['title']}")
+    lines.append(f"- **项目 ID**: {project_id}")
+    lines.append(f"- **项目状态**: {icon} {proj['status']}")
+    lines.append(f"- **导出时间**: {now_str}")
+    lines.append(f"- **来源**: 当前项目实时报告\n")
     lines.append("---\n")
 
-    # Hints section
-    if hints:
-        lines.append("## 💡 提示\n")
-        for h in hints:
-            lines.append(f"- **{h['creator']}** ({format_export_timestamp(h['created_at'])}): {h['content']}")
-        lines.append("")
-        lines.append("---\n")
+    # ── Section 1: 项目概况 ──
+    lines.append(f"## 1. 项目概况\n")
+    if goal_desc:
+        lines.append(f"**评估目标**: {goal_desc}\n")
+    if origin_desc:
+        lines.append(f"**测试目标**: `{origin_desc}`\n")
+    lines.append(f"**创建时间**: {format_export_timestamp(proj['created_at'])}\n")
+    lines.append(f"**发现总数**: {len([f for f in facts if f['id'] not in ('origin', 'goal')])} | **探索方向**: {len(intents)}\n")
 
-    # Findings (non-origin/goal facts)
+    if hints:
+        lines.append(f"\n{summary_desc}\n")
+
+    # Hints
+    if hints:
+        lines.append("\n**人工提示**:\n")
+        for h in hints:
+            lines.append(f"- {h['creator']} ({format_export_timestamp(h['created_at'])}): {h['content']}")
+        lines.append("")
+
+    lines.append("\n## 2. 发现详情\n")
+
+    # Findings (non-origin/goal facts) in vulnerability format
     findings = [f for f in facts if f["id"] not in ("origin", "goal")]
     if findings:
-        lines.append("## 📊 发现汇总\n")
-        for f in findings:
-            # Find which intent produced this fact
+        for idx, f in enumerate(findings, 1):
+            # Find producer intent
             producer = None
             for i in intents:
                 if i["to_fact_id"] == f["id"]:
                     producer = i
                     break
-            label = f"**{f['id']}**"
-            if producer:
-                label += f" — 来自 {producer['id']}"
-            lines.append(f"### {label}\n")
-            lines.append(f"{f['description']}\n")
-        lines.append("---\n")
 
-    # Exploration history
-    lines.append("## 🔍 探索记录\n")
+            lines.append(f"### 发现 {idx}：{f['id']}\n")
+            lines.append(f"- **发现名称**：{f['id']}")
+            if origin_desc:
+                lines.append(f"- **影响目标**：{origin_desc}")
+            if producer:
+                src = ", ".join(sources_by_intent.get(producer["id"], []))
+                lines.append(f"- **来源**：{producer['id']} ({producer['description']})")
+                lines.append(f"- **来源事实**：{src}")
+                lines.append(f"- **执行器**：{producer['worker'] or '—'}")
+                if producer["concluded_at"]:
+                    lines.append(f"- **发现时间**：{format_export_timestamp(producer['concluded_at'])}")
+            lines.append(f"- **详细描述**：{f['description']}\n")
+
+    # ── Section 3: 探索记录 ──
+    lines.append("## 3. 探索记录\n")
 
     completed_intents = [i for i in intents if i["concluded_at"] and i["to_fact_id"] not in (None, "goal")]
     running_intents = [i for i in intents if i["worker"] and not i["concluded_at"]]
     pending_intents = [i for i in intents if not i["worker"] and not i["concluded_at"] and i["description"] != "bootstrap"]
+    bootstrap_intents = [i for i in intents if i["description"] == "bootstrap"]
+
+    # Timeline in chronological order
+    if bootstrap_intents:
+        lines.append("### 1. 初始侦察\n")
+        for i in bootstrap_intents:
+            src = ", ".join(sources_by_intent.get(i["id"], []))
+            lines.append(f"- **{i['id']}**：{i['description']}")
+            if i["to_fact_id"] and i["to_fact_id"] in facts_by_id:
+                lines.append(f"  - 发现：{i['to_fact_id']} — {facts_by_id[i['to_fact_id']][:120]}")
+            if i["concluded_at"]:
+                lines.append(f"  - 完成时间：{format_export_timestamp(i['concluded_at'])}")
+        lines.append("")
 
     if completed_intents:
-        lines.append("### ✅ 已完成\n")
+        lines.append("### 2. 深度探测\n")
         for i in completed_intents:
             src = ", ".join(sources_by_intent.get(i["id"], []))
             fact_desc = facts_by_id.get(i["to_fact_id"], "")
-            lines.append(f"- **{i['id']}**: {i['description']}")
-            lines.append(f"  - 来源: {src} → 发现: {i['to_fact_id']}")
+            lines.append(f"- **{i['id']}**：{i['description']}")
+            lines.append(f"  - 来源：{src} → 发现：{i['to_fact_id']}")
             if fact_desc:
-                lines.append(f"  - {fact_desc[:120]}")
-            lines.append(f"  - 执行: {i['worker']} ({format_export_timestamp(i['concluded_at'])})")
-            lines.append("")
+                lines.append(f"  - 证据：{fact_desc[:200]}")
+            lines.append(f"  - 执行器：{i['worker']}（{format_export_timestamp(i['concluded_at'])}）")
+        lines.append("")
+
     if running_intents:
         lines.append("### 🔄 进行中\n")
         for i in running_intents:
-            lines.append(f"- **{i['id']}**: {i['description']} (执行者: {i['worker']})")
+            lines.append(f"- **{i['id']}**：{i['description']}（执行者：{i['worker']}）")
         lines.append("")
+
     if pending_intents:
         lines.append("### ⏳ 待执行\n")
         for i in pending_intents:
             src = ", ".join(sources_by_intent.get(i["id"], []))
-            lines.append(f"- **{i['id']}**: {i['description']} (来自: {src})")
+            lines.append(f"- **{i['id']}**：{i['description']}（来自：{src}）")
         lines.append("")
+
+    # ── Section 4: 评估结论 ──
+    lines.append("## 4. 评估结论\n")
+    total_findings = len(findings)
+    lines.append(f"本次评估共发现 **{total_findings} 个已确认的安全发现**。\n")
+
+    if findings:
+        lines.append("| 发现编号 | 描述摘要 | 来源意图 |\n")
+        lines.append("|---------|---------|--------|\n")
+        for f in findings:
+            producer = None
+            for i in intents:
+                if i["to_fact_id"] == f["id"]:
+                    producer = i
+                    break
+            desc_short = f["description"][:60] + "..." if len(f["description"]) > 60 else f["description"]
+            source_label = producer["id"] if producer else "手动创建"
+            lines.append(f"| {f['id']} | {desc_short} | {source_label} |\n")
+
+    # Exploration stats
+    lines.append(f"\n**探索统计**：\n")
+    lines.append(f"- 已完成探索：{len(completed_intents)}")
+    lines.append(f"- 进行中：{len(running_intents)}")
+    lines.append(f"- 待执行：{len(pending_intents)}")
+    lines.append(f"- 人工提示：{len(hints)}")
 
     # Completion info
     completion_intent = next((i for i in intents if i["to_fact_id"] == "goal"), None)
     if completion_intent:
-        lines.append("---\n")
+        lines.append("\n---\n")
         lines.append("## 🏁 项目完成\n")
         lines.append(f"由 **{completion_intent['worker']}** 于 {format_export_timestamp(completion_intent['created_at'])} 完成\n")
         lines.append(f"{completion_intent['description']}\n")
