@@ -801,7 +801,7 @@
       </div>
 
       <!-- 调度 -->
-      <div x-show="sideTab === 'dispatch'" class="flex-1 overflow-y-auto p-2 flex flex-col gap-3" x-init="startDispatchLogPolling(); startProgressPolling()" x-effect="if(sideTab !== 'dispatch') { stopDispatchLogPolling(); stopProgressPolling() }">
+      <div x-show="sideTab === 'dispatch'" class="flex-1 overflow-y-auto p-2 flex flex-col gap-3" x-init="startDispatchLogPolling(); startProgressPolling()" x-effect="if(sideTab === 'dispatch') { startDispatchLogPolling(); startProgressPolling() } else { stopDispatchLogPolling(); stopProgressPolling() }">
         <div x-show="selectedProjectId && project?.project?.status === 'active'" class="shrink-0">
           <div class="flex items-center justify-between mb-1 px-2">
             <span class="text-[10px] font-semibold uppercase tracking-wider flex items-center gap-1.5">
