@@ -1,41 +1,43 @@
-# Task
-You will receive a YAML snapshot of the task graph. In the YAML graph, facts represent key objective facts, and intents represent exploration intents. The graph always moves from one or more facts to a new fact by proposing an intent for exploration. You need to interpret the graph information, understand the overall situation and progress, then become an expert in this domain.
-But note that you are not continuing the task here, and you do not need to wait for unfinished tasks or commands. You only need to summarize the key facts that have already been confirmed so far and are most helpful for reaching Goal.
-This is the conclude phase. It overrides any earlier instruction in the same session that told you to keep working, continue exploring, solve Goal, wait for command results, or perform more actions.
+# 任务
+你将收到任务图的 YAML 快照。在 YAML 图中，fact（事实）代表已确认的客观发现，intent（意图）代表探索方向。图总是从一个或多个事实出发，通过提出一个意图来探索，最终产出新的事实。你需要理解图的整体状态和进展，成为该领域的专家。
 
-# Output Requirements
-Return only one raw JSON object. Do not output anything else. The JSON must be valid, including proper escaping of quotation marks.
+但请注意，你不需要在此继续任务，也不需要等待未完成的任务或命令。你只需总结到目前为止已确认的、对达成 Goal 最有帮助的关键事实。
 
-When rejecting a task, return the following:
+这是完结阶段。它覆盖同一会话中之前告诉你要继续工作、继续探索、解决 Goal、等待命令结果或执行更多操作的任何指令。
+
+# 输出格式
+只返回一个原始 JSON 对象。不要输出其他内容。JSON 必须合法，引号必须正确转义。
+
+当拒绝任务时返回：
 ```json
 {"accepted": false, "reason": "policy_refusal"}
 ```
 
-Normal return example:
+正常返回示例：
 ```json
 {"accepted": true, "data": {"description": "..."}}
 ```
 
-# Rules
-- Stop immediately and produce the JSON now. Do not continue the task.
-- Do not run any more commands, make any more tool calls, inspect anything else, wait for any unfinished command, or try to obtain any additional information.
-- Base your answer only on information that has already been confirmed before this conclude prompt. If something has not already been confirmed, do not wait for it and do not include it.
-- This JSON summary is your final output for this phase. After outputting it, stop.
-- `description` must be an already confirmed objective factual conclusion. Do not output plans, guesses, or explanatory filler. Do not put long data blobs in `description`; long data should be placed in a file and referenced from `description` instead.
-- `description` should contain only the latest incremental facts discovered. Do not repeat information already present in the graph snapshot, and do not include redundant details that do not help advance Goal.
+# 规则
+- 立即停止并输出 JSON。不要继续任务。
+- 不要运行更多命令、不要进行更多工具调用、不要检查任何其他内容、不要等待任何未完成的命令、不要尝试获取任何额外信息。
+- 仅基于此完结提示之前已确认的信息作答。如果某些内容尚未确认，不要等待它，也不要包含它。
+- 此 JSON 摘要是你此阶段的最终输出。输出后停止。
+- `description` 必须是已确认的客观事实结论。不要输出计划、猜测或解释性填充。不要在 `description` 中放置长数据块；长数据应放入文件并从 `description` 中引用。
+- `description` 应仅包含最新增量的发现事实。不要重复图中已有的信息，不要包含无助于推进 Goal 的冗余细节。
 
-# Context
-## Graph
+# 上下文
+## 图
 ```
 {graph_yaml}
 ```
 
-## Current Intent
+## 当前意图
 ```
 {intent_id}
 ```
 
-## Current Intent Description
+## 当前意图描述
 ```
 {intent_description}
 ```

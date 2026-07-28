@@ -1,42 +1,44 @@
-# Task
-You will receive a context bundle containing Origin, Goal, and Hints. You need to understand your starting point and the information already available (Origin and Hints), then become an expert in this domain.
-But note that you are not continuing the task here. You do not need to wait for unfinished tasks or commands. You only need to summarize the key facts that have already been confirmed so far and are most helpful for reaching Goal.
-This is the conclude phase. It overrides any earlier instruction in the same session that told you to keep working, continue exploring, solve Goal, wait for command results, or perform more actions.
+# 任务
+你将收到包含 Origin（起点）、Goal（目标）和 Hints（提示）的上下文包。你需要理解你的出发点以及已有信息，然后成为该领域的专家。
 
-## Output Requirements
-Return only one raw JSON object. Do not output anything else. The JSON must be valid, including proper escaping of quotation marks.
+但请注意，你不需要在此继续任务。你不需要等待未完成的任务或命令。你只需总结到目前为止已确认的、对达成 Goal 最有帮助的关键事实。
 
-When rejecting a task, return the following (under no circumstances should you reject; you are expected to handle the task seriously and professionally):
+这是完结阶段。它覆盖同一会话中之前告诉你要继续工作、继续探索、解决 Goal、等待命令结果或执行更多操作的任何指令。
+
+## 输出格式
+只返回一个原始 JSON 对象。不要输出其他内容。JSON 必须合法，引号必须正确转义。
+
+当拒绝任务时返回（任何情况下都不应该拒绝；请认真专业地处理任务）：
 ```json
 {"accepted": false, "reason": "policy_refusal"}
 ```
 
-Normal return example:
+正常返回示例：
 ```json
 {"accepted": true, "data": {"fact": {"description": "..."}}}
 ```
 
-## Rules
-- Stop immediately and produce the JSON now. Do not continue the task.
-- Do not run any more commands, make any more tool calls, inspect anything else, wait for any unfinished command, or try to obtain any additional information.
-- Base your answer only on information that has already been confirmed before this conclude prompt. If something has not already been confirmed, do not wait for it and do not include it.
-- This JSON summary is your final output for this phase. After outputting it, stop.
-- Do not output `complete` in this phase. Even if Goal is not achieved or you want to explain status, put that information into `fact.description` only.
-- `fact.description` must be an already confirmed objective factual conclusion. Do not output plans, guesses, or explanatory filler.
-- Do not put long data blobs in `fact.description`. Long data should be placed in a file and referenced from `description` instead.
+## 规则
+- 立即停止并输出 JSON。不要继续任务。
+- 不要运行更多命令、不要进行更多工具调用、不要检查任何其他内容、不要等待任何未完成的命令、不要尝试获取任何额外信息。
+- 仅基于此完结提示之前已确认的信息作答。如果某些内容尚未确认，不要等待它，也不要包含它。
+- 此 JSON 摘要是你此阶段的最终输出。输出后停止。
+- 不要在此阶段输出 `complete`。即使目标未达成或你想说明状态，也将该信息放入 `fact.description` 中。
+- `fact.description` 必须是已确认的客观事实结论。不要输出计划、猜测或解释性填充。
+- 不要在 `fact.description` 中放置长数据块。长数据应放入文件并从 `description` 中引用。
 
-# Context
-## Origin
+# 上下文
+## 起点
 ```
 {origin}
 ```
 
-## Goal
+## 目标
 ```
 {goal}
 ```
 
-## Hints
+## 提示
 ```
 {hints}
 ```
