@@ -1,0 +1,40 @@
+server: "http://127.0.0.1:8000"
+
+runtime:
+  execution: local
+  worker_healthcheck: disabled
+  max_workers: 3
+  max_running_projects: 2
+  max_project_workers: 2
+  interval: 3
+  healthcheck_timeout: 15
+  prompt_group: "default"
+
+tasks:
+  bootstrap:
+    timeout: 1800
+    conclude_timeout: 120
+    max_retries: 3
+  reason:
+    timeout: 300
+    max_intents: 6
+  explore:
+    timeout: 1800
+    conclude_timeout: 300
+
+local:
+  completed_action: keep
+
+common_env:
+  ANTHROPIC_BASE_URL: "http://127.0.0.1:15721"
+  ANTHROPIC_MODEL: "deepseek-v4-flash"
+
+workers:
+  - name: "local-claude"
+    type: "claudecode"
+    task_types: [bootstrap, reason, explore]
+    max_running: 1
+    priority: 0
+    env:
+      ANTHROPIC_MODEL: "deepseek-v4-flash"
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:15721"
