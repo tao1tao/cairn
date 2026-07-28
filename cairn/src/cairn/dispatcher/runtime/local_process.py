@@ -17,7 +17,7 @@ READ_CHUNK_SIZE = 65536
 STREAM_JOIN_TIMEOUT_SECONDS = 5.0
 FORCE_KILL_REAP_TIMEOUT_SECONDS = 2.0
 PROGRESS_DIR = Path("/tmp/cairn-progress")
-_HEARTBEAT_INTERVAL = 15.0
+_HEARTBEAT_INTERVAL = 60.0
 
 
 def _write_progress(project_id: str, text: str) -> None:

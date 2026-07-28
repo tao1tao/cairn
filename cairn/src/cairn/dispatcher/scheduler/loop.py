@@ -88,9 +88,8 @@ class DispatcherLoop:
             self.run_startup_healthchecks()
             while True:
                 try:
-                    if not self._settings_checked:
+                    if self._iteration_count % 50 == 0:
                         self._validate_server_settings()
-                        self._settings_checked = True
                     self._reap_futures()
                     self._reap_cleanup_futures()
                     summaries = self.client.list_projects()

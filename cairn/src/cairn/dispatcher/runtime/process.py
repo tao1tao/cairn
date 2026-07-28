@@ -197,9 +197,11 @@ class ManagedProcess:
     def _kill_pid(self, pid: int) -> None:
         last_error: str | None = None
         for command in (
+            # Kill the process group (negative PID) to catch all children
+            ["kill", "-KILL", f"-{pid}"],
             ["kill", "-KILL", str(pid)],
-            ["/bin/sh", "-lc", f"kill -KILL {pid}"],
-            ["sh", "-lc", f"kill -KILL {pid}"],
+            ["/bin/sh", "-lc", f"kill -KILL -{pid} 2>/dev/null; kill -KILL {pid}"],
+            ["sh", "-lc", f"kill -KILL -{pid} 2>/dev/null; kill -KILL {pid}"],
         ):
             try:
                 result = self._container.exec_run(command, stdout=False, stderr=False)
