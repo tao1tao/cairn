@@ -2,6 +2,8 @@
 You will receive a YAML snapshot of the task graph. In the YAML graph, facts represent key objective facts, and intents represent exploration intents. The graph always moves from one or more facts to a new fact by proposing an intent for exploration. You need to interpret the graph information, understand the overall situation and progress, then become an expert in this domain.
 You will also be assigned a specific `Current Intent`. You only need to explore in the direction of this specific Intent and try to advance the task toward the goal described by Goal.
 
+If the Current Intent Description starts with `[验证]`, this is a **verification task**: independently verify a high-severity finding made by another worker. Carefully check the claim by running independent commands. If confirmed, return the confirmed evidence. If the claim cannot be reproduced, report that in the description. Do NOT simply repeat the original finding — independently prove or disprove it.
+
 # Output Requirements
 Return only one raw JSON object. Do not output anything else. The JSON must be valid, including proper escaping of quotation marks.
 
@@ -28,6 +30,11 @@ Normal return example:
   [TARGET: specific-endpoint-or-component]
   ```
   Base severity on: exploitability, data exposure, authentication required, and potential business impact. Use "Info" for general reconnaissance findings that are not vulnerabilities themselves.
+- **Attack chain context**: If this finding connects with previous facts to form an exploitation path, add a line like:
+  ```
+  [ATTACK_CHAIN: 漏洞名称 | 前置条件: f001 | 后续利用: f003]
+  ```
+  This helps build a complete picture of how findings chain together to achieve Goal.
 
 # Context
 ## Graph

@@ -17,6 +17,11 @@ If Goal has been satisfied, return:
 {"accepted": true, "data": {"complete": {"from": ["f001"], "description": "..."}}}
 ```
 
+If known, also include attack paths (chains of facts leading to goal):
+```json
+{"accepted": true, "data": {"complete": {"from": ["f001"], "description": "..."}, "attack_paths": [{"name": "利用链名称", "steps": ["f001", "f002"], "description": "这条路径如何达到目标"}]}}
+```
+
 If Goal has not been satisfied but new intents should be proposed, return:
 ```json
 {"accepted": true, "data": {"intents": [{"from": ["f001"], "description": "..."}, {"from": ["f002", "f003"], "description": "..."}]}}

@@ -133,12 +133,29 @@ def run_explore_task(
                     )
                 release_fn()
                 return "rejected"
-            return write_conclude_result(
+            result_status = write_conclude_result(
                 client, project.project.id, intent.id, worker.name, description,
                 source="explore_execute",
                 phase_ms=execute_ms,
                 total_ms=int((time.perf_counter() - task_started) * 1000),
             )
+
+            # Auto-verify high-severity findings
+            if result_status == "success" and (
+                "[SEVERITY: Critical]" in description or "[SEVERITY: High]" in description
+            ):
+                # Extract fact ID from description if available, or mark intent for verification
+                verify_desc = f"[验证] 验证 {intent.id} 的高危发现 — {preview(description, limit=100)}"
+                verify = client.create_intent(
+                    project.project.id, [intent.id if intent.to else intent.id],
+                    verify_desc, worker.name,
+                )
+                if verify.ok:
+                    LOG.info(
+                        "created verification intent for high-severity finding project=%s intent=%s",
+                        project.project.id, intent.id,
+                    )
+            return result_status
 
         if did_timeout(first):
             LOG.warning(

@@ -218,6 +218,20 @@ def _export_report(conn, project_id: str) -> str:
                     lines.append(f"- **发现时间**：{format_export_timestamp(producer['concluded_at'])}")
             lines.append(f"- **详细描述**：{f['description']}\n")
 
+    # ── Attack chain extraction from fact descriptions ──
+    attack_chains = []
+    for f in findings:
+        for line in f["description"].split("\n"):
+            if "[ATTACK_CHAIN:" in line:
+                # Extract the chain info
+                chain_text = line.split("[ATTACK_CHAIN:")[1].split("]")[0].strip()
+                attack_chains.append(chain_text)
+    if attack_chains:
+        lines.append("### 攻击路径\n")
+        for chain in attack_chains:
+            lines.append(f"- {chain}")
+        lines.append("")
+
     # ── Section 3: 探索记录 ──
     lines.append("## 3. 探索记录\n")
 

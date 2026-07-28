@@ -160,8 +160,25 @@ def run_reason_task(
             return "rejected"
 
         if kind == "complete":
+            # Extract attack paths if provided
+            attack_paths = payload.get("data", {}).get("attack_paths") if isinstance(payload.get("data"), dict) else None
+            complete_description = data["description"]
+            if attack_paths and isinstance(attack_paths, list):
+                path_text = "\n\n## 攻击路径\n"
+                for idx, ap in enumerate(attack_paths, 1):
+                    if isinstance(ap, dict):
+                        name = ap.get("name", f"路径{idx}")
+                        desc = ap.get("description", "")
+                        steps = ap.get("steps", [])
+                        path_text += f"\n### {name}\n"
+                        if steps:
+                            path_text += f"步骤: {' → '.join(steps)}\n"
+                        if desc:
+                            path_text += f"{desc}\n"
+                complete_description += path_text
+
             response = client.complete(
-                project.project.id, data["from"], data["description"], worker.name,
+                project.project.id, data["from"], complete_description, worker.name,
             )
             if response.status_code == 403:
                 LOG.info(
