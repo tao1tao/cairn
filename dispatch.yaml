@@ -3,7 +3,7 @@ server: "http://127.0.0.1:8000"
 runtime:
   execution: local
   worker_healthcheck: disabled
-  max_workers: 3
+  max_workers: 4
   max_running_projects: 2
   max_project_workers: 2
   interval: 3
@@ -31,6 +31,14 @@ common_env:
 
 workers:
   - name: "local-claude"
+    type: "claudecode"
+    task_types: [bootstrap, reason, explore]
+    max_running: 1
+    priority: 0
+    env:
+      ANTHROPIC_MODEL: "deepseek-v4-flash"
+      ANTHROPIC_BASE_URL: "http://127.0.0.1:15721"
+  - name: "local-claude-2"
     type: "claudecode"
     task_types: [bootstrap, reason, explore]
     max_running: 1

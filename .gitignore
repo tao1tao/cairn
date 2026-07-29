@@ -8,3 +8,4 @@ datas/
 .env.local
 *.log
 .DS_Store
+proj_*/
